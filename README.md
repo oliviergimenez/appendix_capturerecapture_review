@@ -1,6 +1,6 @@
 # A review of the past decade of capture-recapture 
 
-This repository contains the appendix, the data and codes for a paper submitted to Frontiers in Ecology and Evolution on reviewing the past decade of research in capture-recapture. 
+This repository contains the appendix, data and codes for a paper submitted to Frontiers in Ecology and Evolution on reviewing the past decade of research in capture-recapture. 
 
 The appendix is in html format; download the zip file, unzip it and open the file with your favorite internet browser (e.g. Firefox, Safari or Internet Explorer). 
 
