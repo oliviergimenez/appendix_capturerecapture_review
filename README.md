@@ -4,4 +4,6 @@ This repository contains the appendix, the data and codes for a paper submitted 
 
 The appendix is in html format; download the zip file, unzip it and open the file with your favorite internet browser (e.g. Firefox, Safari or Internet Explorer). 
 
-The `R` code to reproduce this appendix is in 
+The `R` code to reproduce this appendix is in `recap_analyses.Rmd`; you will need the `data` and `figs` repositories to run it. 
+
+Olivier Gimenez, December 2019.
