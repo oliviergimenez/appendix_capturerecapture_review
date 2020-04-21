@@ -6,4 +6,4 @@ The appendix `recap_analyses.html.zip` is a zipped html file: download the zip f
 
 The `R` code to reproduce this appendix is in `recap_analyses.Rmd`; you will need the `data` and `figs` folders to run it, just download or clone the repo. 
 
-Olivier Gimenez, December 2019.
+Olivier Gimenez, April 2020.
