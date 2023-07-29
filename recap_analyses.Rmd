@@ -1,0 +1,401 @@
+---
+title: "Analyses of the 2009-2019 research in capture-recapture"
+author: "Olivier Gimenez"
+date: "September, December 2019"
+output: 
+  html_document:
+    toc: TRUE
+    toc_depth: 2
+    number_sections: true
+    theme: united
+    highlight: tango
+    df_print: paged
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, 
+                      cache = TRUE, 
+                      message = FALSE, 
+                      warning = FALSE, 
+                      dpi = 300, 
+                      fig.height=6, 
+                      fig.width = 1.777777*6,
+                      cache.lazy = FALSE)
+library(tidyverse)
+theme_set(theme_light())
+```
+
+# Introduction
+
+To determine the questions and methods folks have been interested in, I searched for capture-recapture papers in the Web of Science. 
+I found more than 5000 relevant papers on the 2009-2019 period.
+
+To make sense of this big corpus, I carried out bibliometric and textual analyses in the spirit of [Nakagawa et al. 2018](https://www.cell.com/trends/ecology-evolution/fulltext/S0169-5347(18)30278-7). Explanations along with the code and results are in the next section `Quantitative analyses: Bibliometric and textual analyses`. I also inspected a sample of methodological and ecological papers, see the third section `Qualitative analyses: Making sense of the corpus of scientific papers on capture-recapture`. 
+
+# Quantitative analyses: Bibliometric and textual analyses
+
+## Methods and data collection
+
+To carry out a bibliometric analysis of the capture-recapture literature over the last 10 years, I followed
+the excellent [vignette of the `R` bibliometrix
+package](http://htmlpreview.github.io/?https://github.com/massimoaria/bibliometrix/master/vignettes/bibliometrix-vignette.html).
+I also carried out a text analysis using topic modelling, for which I followed the steps [here](https://yufree.cn/en/2017/07/07/text-mining/) and also used the [Text Mining with R](https://www.tidytextmining.com/) excellent book.
+
+To collect the data, I used the following settings:
+
+* Data source: Clarivate Analytics Web of Science (<a href="http://apps.webofknowledge.com" class="uri">http://apps.webofknowledge.com</a>)
+* Data format: Plain text
+* Query: capture-recapture OR mark-recapture OR capture-mark-recapture in Topic (search in title, abstract, author, keywords, and more)
+* Timespan: 2009-2019
+* Document Type: Articles
+* Query data: 5 August, 2019
+
+We load the packages we need:
+```{r}
+library(bibliometrix) # bib analyses
+library(quanteda) # textual data analyses
+library(tidyverse) # manipulation and viz data
+library(tidytext) # handle text
+library(topicmodels) # topic modelling
+```
+
+Let us read in and format the data:
+```{r message=FALSE, warning=FALSE}
+# Loading txt or bib files into R environment
+D <- readFiles("data/savedrecs.txt",
+               "data/savedrecs(1).txt",
+               "data/savedrecs(2).txt",
+               "data/savedrecs(3).txt",
+               "data/savedrecs(4).txt",
+               "data/savedrecs(5).txt",
+               "data/savedrecs(6).txt",
+               "data/savedrecs(7).txt",
+               "data/savedrecs(8).txt",
+               "data/savedrecs(9).txt",
+               "data/savedrecs(10).txt")
+# Converting the loaded files into a R bibliographic dataframe
+# (takes a minute or two)
+M <- convert2df(D, dbsource="wos", format="plaintext")
+```
+
+I ended up with 5022 articles. Note that WoS only allows 500 items to be exported at once, therefore I had to repeat the same operation multiple times.
+
+We export back as a csv file for further inspection:
+```{r eval = FALSE}
+M %>% 
+  mutate(title = tolower(TI), 
+         abstract = tolower(AB),
+         authors = AU,
+         journal = SO,
+         keywords = tolower(DE)) %>%
+  select(title, keywords, journal, authors, abstract) %>%
+  write_csv("crdat.csv")
+```
+
+## Descriptive statistics
+
+WoS provides the user with a bunch of graphs, let’s have a look.
+
+Research areas are: ![areas](figs/areas.png)
+
+The number of publications per year is: ![years](figs/years.png)
+
+The countries of the first author are: ![countries](figs/countries.png)
+
+The journals are: ![journals](figs/journals.png)
+
+The most productive authors are: ![authors](figs/authors.png)
+
+The graphs for the dataset of citing articles (who uses and what
+capture-recapture are used for) show the same patterns as the dataset of
+published articles, except for the journals. There are a few different
+journals from which a bunch of citations are coming from, namely
+Biological Conservation, Scientific Reports, Molecular Ecology and
+Proceedings of the Royal Society B - Biological Sciences:
+![citingjournals](figs/citingjournals.png)
+
+We also want to produce our own descriptive statistics. Let’s have a look to the data with `R`.
+
+Number of papers per journal;
+```{r}
+dat <- as_tibble(M)
+dat %>%
+  group_by(SO) %>%
+  count() %>%
+  filter(n > 50) %>%
+  ggplot(aes(reorder(SO, n), n)) +
+  geom_col() +
+  coord_flip() +
+  labs(title = "Nb of papers per journal") +
+  ylab('') + 
+  xlab('')
+```
+
+Wordcloud:
+```{r}
+dat$abstract <- tm::removeWords(dat$AB, stopwords("english"))
+abs_corpus <- corpus(dat$abstract)
+abs_dfm <- dfm(abs_corpus, remove = stopwords("en"), remove_numbers = TRUE, remove_punct = TRUE)
+textplot_wordcloud(abs_dfm, min_count = 1500)
+```
+
+Most common words in titles:
+```{r}
+wordft <- dat %>%
+  mutate(line = row_number()) %>%
+  filter(nchar(TI) > 0) %>%
+  unnest_tokens(word, TI) %>%
+  anti_join(stop_words) 
+
+wordft %>%
+  count(word, sort = TRUE)
+
+wordft %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 200) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(word, n)) +
+  geom_col() +
+  xlab(NULL) +
+  ylab(NULL) + 
+  coord_flip() +
+  labs(title = "Most common words in titles")
+```
+
+Most common words in abstracts:
+```{r}
+wordab <- dat %>%
+  mutate(line = row_number()) %>%
+  filter(nchar(AB) > 0) %>%
+  unnest_tokens(word, AB) %>%
+  anti_join(stop_words) 
+
+wordab %>%
+  count(word, sort = TRUE)
+
+wordab %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 1500) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(word, n)) +
+  geom_col() +
+  xlab(NULL) +
+  ylab(NULL) + 
+  coord_flip() + 
+  labs(title = "Most common words in abstracts")
+```
+
+## Bibliometric results
+
+Now we turn to a more detailed analysis of the published articles. 
+
+First calculate the main bibliometric measures:
+```{r}
+results <- biblioAnalysis(M, sep = ";")
+options(width=100)
+S <- summary(object = results, k = 10, pause = FALSE)
+```
+
+Visualize:
+```{r}
+plot(x = results, k = 10, pause = FALSE)
+```
+
+The 100 most frequent cited manuscripts:
+```{r}
+CR <- citations(M, field = "article", sep = ";")
+cbind(CR$Cited[1:100])
+```
+
+The most frequent cited first authors:
+```{r}
+CR <- citations(M, field = "author", sep = ";")
+cbind(CR$Cited[1:25])
+```
+
+Top authors productivity over time:
+```{r}
+topAU <- authorProdOverTime(M, k = 10, graph = TRUE)
+```
+
+## Network results
+
+Below is an author collaboration network, where nodes represent top 30 authors in terms of the numbers of authored
+papers in our dataset; links are co-authorships. The Louvain algorithm is used throughout for clustering:
+```{r}
+M <- metaTagExtraction(M, Field = "AU_CO", sep = ";")
+NetMatrix <- biblioNetwork(M, analysis = "collaboration", network = "authors", sep = ";")
+net <- networkPlot(NetMatrix, n = 30, Title = "Collaboration network", type = "fruchterman", size=TRUE, remove.multiple=FALSE,labelsize=0.7,cluster="louvain")
+```
+
+Country collaborations:
+```{r}
+NetMatrix <- biblioNetwork(M, analysis = "collaboration", network = "countries", sep = ";")
+net <- networkPlot(NetMatrix, n = 20, Title = "Country collaborations", type = "fruchterman", size=TRUE, remove.multiple=FALSE,labelsize=0.7,cluster="louvain")
+```
+
+A keyword co-occurrences network:
+```{r}
+NetMatrix <- biblioNetwork(M, analysis = "co-occurrences", network = "keywords", sep = ";")
+# Main characteristics of the network
+netstat <- networkStat(NetMatrix)
+summary(netstat, k = 10)
+net <- networkPlot(NetMatrix, normalize="association", weighted=T, n = 50, Title = "Keyword co-occurrences", type = "fruchterman", size=T,edgesize = 5,labelsize=0.7)
+```
+
+## Textual analysis: Topic modelling on abstracts
+
+To know everything about textual analysis and topic modelling in particular, I recommend the reading of [Text Mining with R](https://www.tidytextmining.com/).
+
+Clean and format the data:
+```{r}
+wordfabs <- dat %>%
+  mutate(line = row_number()) %>%
+  filter(nchar(AB) > 0) %>%
+  unnest_tokens(word, AB) %>%
+  anti_join(stop_words) %>%
+  filter(str_detect(word, "[^\\d]")) %>%
+  group_by(word) %>%
+  mutate(word_total = n()) %>%
+  ungroup() 
+
+desc_dtm <- wordfabs %>%
+  count(line, word, sort = TRUE) %>%
+  ungroup() %>%
+  cast_dtm(line, word, n)
+```
+
+Perform the analysis, takes several minutes:
+```{r}
+desc_lda <- LDA(desc_dtm, k = 20, control = list(seed = 42))
+tidy_lda <- tidy(desc_lda)
+```
+
+Visualise results:
+```{r}
+top_terms <- tidy_lda %>%
+  filter(topic < 13) %>%
+  group_by(topic) %>%
+  top_n(10, beta) %>%
+  ungroup() %>%
+  arrange(topic, -beta)
+
+top_terms %>%
+  mutate(term = reorder(term, beta)) %>%
+  group_by(topic, term) %>%    
+  arrange(desc(beta)) %>%  
+  ungroup() %>%
+  mutate(term = factor(paste(term, topic, sep = "__"), 
+                       levels = rev(paste(term, topic, sep = "__")))) %>%
+  ggplot(aes(term, beta, fill = as.factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  coord_flip() +
+  
+  scale_x_discrete(labels = function(x) gsub("__.+$", "", x)) +
+  labs(title = NULL, x = NULL, y = NULL) +
+  facet_wrap(~ topic, ncol = 3, scales = "free")
+```
+
+```{r}
+ggsave('topic_abstracts.png', width = 9, dpi = 600)
+```
+
+This is quite informative! Topics can fairly easily be interpreted: 1 is about estimating fish survival, 2 is about photo-id, 3 is general about modeling and estimation, 4 is disease ecology, 5 is about estimating abundance of marine mammals, 6 is about capture-recapture in (human) health sciences, 7 is about the conservation of large carnivores (tigers, leopards), 8 is about growth and recruitment, 9 about prevalence estimation in humans, 10 is about the estimation of individual growth in fish, 11 is (not a surprise) about birds (migration and reproduction), and 12 is about habitat perturbations .
+
+# Qualitative analyses: Making sense of the corpus
+
+## Motivation
+
+My objective was to make a list of ecological questions and methods that
+were addressed in these papers. I ended up with more than 5000 papers.
+The bibliometric and text analyses above were useful, but I needed to
+dig a bit deeper to achieve the objective. Here how I did.
+
+## Methodological papers
+
+First, I isolated the methodological journals. To do so, I focused the
+search on journals that had published more than 10 papers about
+capture-recapture over the last 10 years:
+```{r}
+library(tidyverse)
+raw_dat <- read_csv(file = 'data/crdat.csv')
+
+raw_dat %>% 
+  group_by(journal) %>%
+  filter(n() > 10) %>%
+  ungroup() %>%
+  count(journal)
+```
+
+By inspecting the list, I ended up with these journals:
+```{r}
+methods <- raw_dat %>% 
+  filter(journal %in% c('BIOMETRICS',
+                        'ECOLOGICAL MODELLING',
+                        'JOURNAL OF AGRICULTURAL BIOLOGICAL AND ENVIRONMENTAL STATISTICS',
+                        'METHODS IN ECOLOGY AND EVOLUTION',
+                        'ANNALS OF APPLIED STATISTICS',
+                        'ENVIRONMENTAL AND ECOLOGICAL STATISTICS'))
+
+methods %>%
+  count(journal, sort = TRUE)
+```
+
+Now I exported the 219 papers published in these methodological journals in a csv file:
+```{r}
+raw_dat %>% 
+  filter(journal %in% c('BIOMETRICS',
+                        'ECOLOGICAL MODELLING',
+                        'JOURNAL OF AGRICULTURAL BIOLOGICAL AND ENVIRONMENTAL STATISTICS',
+                        'METHODS IN ECOLOGY AND EVOLUTION',
+                        'ANNALS OF APPLIED STATISTICS',
+                        'ENVIRONMENTAL AND ECOLOGICAL STATISTICS')) %>%
+  write_csv('papers_in_methodological_journals.csv')
+```
+
+The next step was to annotate this file to determine the methods used. `R` could not help, and I had to do it by hand. I read the >200 titles and abstracts and added my tags in an extra column. Took me 2 hours or so. The task was cumbersome but very interesting. I enjoyed seeing what my colleagues have been working on. The results are in [this file](https://github.com/oliviergimenez/capture-recapture-review/blob/master/papers_in_methodological_journals_annotated.csv).
+
+By focusing the annotation on the methodological journals, I ignored all the methodological papers that had been published in other non-methodological journals like, among others, Ecology, Journal of Applied Ecology, Conservation Biology and Plos One which welcome methods. I address this issue below. In brief, I scanned the corpus of ecological papers and tagged all methodological papers (126 in total); I moved them to the [file of methodological papers](https://github.com/oliviergimenez/capture-recapture-review/blob/master/papers_in_methodological_journals_annotated.csv) and added a column to keep track of the paper original (methodological vs ecological corpus).
+
+## Ecological papers
+
+Second, I isolated the ecological journals. To do so, I focused the search
+on journals that had been published more than 50 papers about
+capture-recapture over the last 10 years, and I excluded the
+methodological journals:
+```{r}
+ecol <- raw_dat %>% 
+  filter(!journal %in% c('BIOMETRICS',
+                        'ECOLOGICAL MODELLING',
+                        'JOURNAL OF AGRICULTURAL BIOLOGICAL AND ENVIRONMENTAL STATISTICS',
+                        'METHODS IN ECOLOGY AND EVOLUTION',
+                        'ANNALS OF APPLIED STATISTICS',
+                        'ENVIRONMENTAL AND ECOLOGICAL STATISTICS')) %>%
+  group_by(journal) %>%
+  filter(n() > 50) %>%
+  ungroup()
+
+ecol %>% 
+  count(journal, sort = TRUE)
+
+ecol %>%
+  nrow()
+
+ecol %>%
+  write_csv('papers_in_ecological_journals.csv')
+```
+
+Again, I inspected the papers one by one. Took me several hours as there were >1000 papers (remember I moved the 126 methodological papers I found in ecological journals to the methodological corpus)! I mainly focused my reading on the titles and abstracts. I didn't annotate the papers.
+
+# Note
+
+This work initially started as a talk I gave at the [Wildlife Research and Conservation 2019
+conference](http://www.izw-berlin.de/welcome-234.html) in Berlin end of
+September 2019. The slides can be downloaded [here](https://github.com/oliviergimenez/capture-recapture-review/blob/master/talkGimenez.pdf). There is also a version of the talk with my voice recorded on it [there](https://drive.google.com/open?id=1RFQ3Dr6vVii4J5-8hMlPW81364JYG6CP), and a [Twitter thread](https://twitter.com/oaggimenez/status/1178044240036876289) of it.
+
+# `R` version used
+
+```{r}
+sessionInfo()
+```
