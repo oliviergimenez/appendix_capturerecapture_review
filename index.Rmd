@@ -1,5 +1,5 @@
 ---
-title: "Analyses of the capture-recapture literature: 2009-2019 period"
+title: "Analyses of the capture-recapture literature: 2000-2025 period"
 author: "Olivier Gimenez, Ruth King, Rachel McCrea"
 date: "`r Sys.Date()`"
 output: 
@@ -28,7 +28,7 @@ theme_set(theme_light())
 
 # Introduction
 
-To determine the questions and methods folks have been interested in, we searched for capture-recapture papers in the Web of Science. We found more than 5000 relevant papers during the 2009-2019 period.
+To determine the questions and methods folks have been interested in, we searched for capture-recapture papers in the Web of Science. We found more than 5000 relevant papers during the 2000-2025 period.
 
 To make sense of this big corpus, we carried out bibliometric and textual analyses in the spirit of [Nakagawa et al. 2018](https://www.cell.com/trends/ecology-evolution/fulltext/S0169-5347(18)30278-7). Explanations along with the code and results are in the next section `Quantitative analyses: Bibliometric and textual analyses`. We also inspected a sample of methodological and ecological papers, see section `Qualitative analyses: Making sense of the corpus of scientific papers on capture-recapture`. 
 
@@ -36,16 +36,17 @@ To make sense of this big corpus, we carried out bibliometric and textual analys
 
 ## Methods and data collection
 
-To carry out a bibliometric analysis of the capture-recapture literature over the 2009-2019, we used the `R` package [bibliometrix](https://www.bibliometrix.org/). We also carried out a text analysis using topic modelling, for which we recommend the book [Text Mining with R](https://www.tidytextmining.com/).
+To carry out a bibliometric analysis of the capture-recapture literature over the 2003-2023, we used the `R` package [bibliometrix](https://www.bibliometrix.org/). We also carried out a text analysis using topic modelling, for which we recommend the book [Text Mining with R](https://www.tidytextmining.com/).
 
 To collect the data, we used the following settings:
 
 * Data source: Clarivate Analytics Web of Science (<a href="http://apps.webofknowledge.com" class="uri">http://apps.webofknowledge.com</a>)
 * Data format: Plain text
 * Query: capture-recapture OR mark-recapture OR capture-mark-recapture in Topic (search in title, abstract, author, keywords, and more)
-* Timespan: 2009-2019
+* Timespan: 2000-2025
 * Document Type: Articles
-* Query data: 5 August, 2019
+* Query data: 26 December, 2025.
+* Export: Full Record and Cited References
 
 We load the packages we need:
 ```{r}
@@ -59,23 +60,24 @@ library(topicmodels) # topic modelling
 Let us read in and format the data:
 ```{r}
 # Loading txt or bib files into R environment
-D <- c("data/savedrecs.txt",
-       "data/savedrecs(1).txt",
-       "data/savedrecs(2).txt",
-       "data/savedrecs(3).txt",
-       "data/savedrecs(4).txt",
-       "data/savedrecs(5).txt",
-       "data/savedrecs(6).txt",
-       "data/savedrecs(7).txt",
-       "data/savedrecs(8).txt",
-       "data/savedrecs(9).txt",
-       "data/savedrecs(10).txt")
+D <- c("data/2000-2025/savedrecs.txt",
+       "data/2000-2025/savedrecs(1).txt",
+       "data/2000-2025/savedrecs(2).txt",
+       "data/2000-2025/savedrecs(3).txt",
+       "data/2000-2025/savedrecs(4).txt",
+       "data/2000-2025/savedrecs(5).txt",
+       "data/2000-2025/savedrecs(6).txt",
+       "data/2000-2025/savedrecs(7).txt",
+       "data/2000-2025/savedrecs(8).txt",
+       "data/2000-2025/savedrecs(9).txt",
+       "data/2000-2025/savedrecs(10).txt")
+
 # Converting the loaded files into a R bibliographic dataframe
 # (takes a minute or two)
 M <- convert2df(D, dbsource="wos", format="plaintext")
 ```
 
-We ended up with `r nrow(M)` articles. Note that WoS only allows 500 items to be exported at once, therefore we had to repeat the same operation multiple times. 
+We ended up with `r nrow(M)` articles. Note that WoS only allows 1000 items to be exported at once, therefore we had to repeat the same operation 10 times. 
 
 We export back as a csv file for further inspection:
 ```{r eval = TRUE}
@@ -86,7 +88,7 @@ M %>%
          journal = SO,
          keywords = tolower(DE)) %>%
   select(title, keywords, journal, authors, abstract) %>%
-  write_csv("data/crdat.csv")
+  write_csv("data/2000-2025/crdat.csv")
 ```
 
 ## Descriptive statistics
@@ -103,13 +105,15 @@ The journals are: ![journals](figs/journals.png)
 
 The most productive authors are: ![authors](figs/authors.png)
 
-The graphs for the dataset of citing articles (who uses and what
-capture-recapture are used for) show the same patterns as the dataset of
-published articles, except for the journals. There are a few different
-journals from which a bunch of citations are coming from, namely
-Biological Conservation, Scientific Reports, Molecular Ecology and
-Proceedings of the Royal Society B - Biological Sciences:
-![citingjournals](figs/citingjournals.png)
+The SDGs are: ![sdgs](figs/sdgs.png)
+
+<!-- The graphs for the dataset of citing articles (who uses and what -->
+<!-- capture-recapture are used for) show the same patterns as the dataset of -->
+<!-- published articles, except for the journals. There are a few different -->
+<!-- journals from which a bunch of citations are coming from, namely -->
+<!-- Biological Conservation, Scientific Reports, Molecular Ecology and -->
+<!-- Proceedings of the Royal Society B - Biological Sciences: -->
+<!-- ![citingjournals](figs/citingjournals.png) -->
 
 We also want to produce our own descriptive statistics. Let’s have a look to the data with `R`.
 
@@ -182,13 +186,13 @@ plot(x = results, k = 10, pause = FALSE)
 ```
 
 The 100 most frequent cited manuscripts:
-```{r}
+```{r eval = FALSE}
 CR <- citations(M, field = "article", sep = ";")
 cbind(CR$Cited[1:100])
 ```
 
 The most frequent cited first authors:
-```{r}
+```{r eval=FALSE}
 CR <- citations(M, field = "author", sep = ";")
 cbind(CR$Cited[1:25])
 ```
@@ -231,6 +235,17 @@ net <- networkPlot(NetMatrix, normalize = "association", weighted = T, n = 50,
 To know everything about textual analysis and topic modelling in particular, we recommend the reading of [Text Mining with R](https://www.tidytextmining.com/).
 
 Clean and format the data:
+
+```{r}
+#dat_backup <- dat
+# dat <- dat_backup %>%
+#   group_by(SO) %>%
+#   filter(n() > 49) %>%
+#   ungroup()
+#dat <- dat_backup %>%
+#  filter(PY > 2002)
+```
+
 ```{r}
 wordfabs <- dat %>%
   mutate(line = row_number()) %>%
@@ -238,6 +253,8 @@ wordfabs <- dat %>%
   unnest_tokens(word, AB) %>%
   anti_join(stop_words) %>%
   filter(str_detect(word, "[^\\d]")) %>%
+#  filter(!str_detect(word, "population")) %>% #############################
+#  filter(!str_detect(word, "data")) %>% #############################
   group_by(word) %>%
   mutate(word_total = n()) %>%
   ungroup() 
@@ -250,14 +267,14 @@ desc_dtm <- wordfabs %>%
 
 Perform the analysis, takes several minutes:
 ```{r eval = TRUE}
-desc_lda <- LDA(desc_dtm, k = 20, control = list(seed = 42))
+desc_lda <- LDA(desc_dtm, k = 15, control = list(seed = 2023))
 tidy_lda <- tidy(desc_lda)
 ```
 
 Visualise results:
 ```{r eval = TRUE}
 top_terms <- tidy_lda %>%
-  filter(topic < 13) %>%
+  filter(topic < 16) %>%
   group_by(topic) %>%
   top_n(10, beta) %>%
   ungroup() %>%
@@ -281,7 +298,7 @@ top_terms %>%
 ggsave('figs/topic_abstracts.png', width = 12, dpi = 600)
 ```
 
-This is quite informative! Topics can fairly easily be interpreted: 1 is about estimating fish survival, 2 is about photo-id, 3 is general about modeling and estimation, 4 is disease ecology, 5 is about estimating abundance of marine mammals, 6 is about capture-recapture in (human) health sciences, 7 is about the conservation of large carnivores (tigers, leopards), 8 is about growth and recruitment, 9 about prevalence estimation in humans, 10 is about the estimation of individual growth in fish, 11 is (not a surprise) about birds (migration and reproduction), and 12 is about habitat perturbations.
+This is quite informative! A REVOIR Topics can fairly easily be interpreted: 1 is about estimating fish survival, 2 is about photo-id, 3 is general about modeling and estimation, 4 is disease ecology, 5 is about estimating abundance of marine mammals, 6 is about capture-recapture in (human) health sciences, 7 is about the conservation of large carnivores (tigers, leopards), 8 is about growth and recruitment, 9 about prevalence estimation in humans, 10 is about the estimation of individual growth in fish, 11 is (not a surprise) about birds (migration and reproduction), and 12 is about habitat perturbations.
 
 # Qualitative analyses: Making sense of the corpus
 
@@ -297,7 +314,7 @@ First, we isolated the methodological journals. To do so, we focused the
 search on journals that had published more than 10 papers about
 capture-recapture over the last 10 years:
 ```{r}
-raw_dat <- read_csv(file = 'data/crdat.csv')
+raw_dat <- read_csv(file = 'data/2000-2025/crdat.csv')
 raw_dat %>% 
   group_by(journal) %>%
   filter(n() > 10) %>%
@@ -328,7 +345,7 @@ raw_dat %>%
                         'METHODS IN ECOLOGY AND EVOLUTION',
                         'ANNALS OF APPLIED STATISTICS',
                         'ENVIRONMENTAL AND ECOLOGICAL STATISTICS')) %>%
-  write_csv('data/papers_in_methodological_journals.csv')
+  write_csv('data/2000-2025/papers_in_methodological_journals.csv')
 ```
 
 The next step was to annotate this file to determine the methods used. `R` could not help, and we had to do it by hand. We read the >200 titles and abstracts and added our tags in an extra column. The task was cumbersome but very interesting. We enjoyed seeing what colleagues have been working on. The results are in [this file](data/papers_in_methodological_journals_annotated.csv).
@@ -360,7 +377,7 @@ ecol %>%
   nrow()
 
 ecol %>%
-  write_csv('data/papers_in_ecological_journals.csv')
+  write_csv('data/2000-2025/papers_in_ecological_journals.csv')
 ```
 
 Again, we inspected the papers one by one. We mainly focused the reading on the titles and abstracts. We did not annotate the papers.
